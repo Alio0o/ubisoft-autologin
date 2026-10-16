@@ -45,7 +45,7 @@ This app handles your Ubisoft password, so you may prefer to **build it yourself
 
 **Option B: download the release**
 
-Download `UbisoftAutoLogin.exe` from [Releases](../../releases). You can compare its SHA256 (`Get-FileHash .\UbisoftAutoLogin.exe`) with a build you made yourself.
+Download `UbisoftAutoLogin.exe` from [Releases](../../releases) and check that its SHA256 (`Get-FileHash .\UbisoftAutoLogin.exe`) matches the one listed in the release notes. (A build you make yourself will have a different hash; .NET builds are not byte-for-byte reproducible.)
 
 **Then:**
 
