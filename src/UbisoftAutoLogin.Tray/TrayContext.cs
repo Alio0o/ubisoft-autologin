@@ -52,7 +52,9 @@ internal sealed class TrayContext : ApplicationContext
         _engine.ManualActionRequired += msg => _icon.ShowBalloonTip(8000, "Ubisoft Auto-Login", msg, ToolTipIcon.Warning);
         _engine.Start();
 
-        if (openSettingsOnStart && !_store.Exists()) ShowSettings();
+        HandOver.Listen(this);
+        // Opened by the user (not at startup): show the settings window so the password can be changed.
+        if (openSettingsOnStart) ShowSettings();
     }
 
     internal static string Describe(EngineStatus s) => s switch

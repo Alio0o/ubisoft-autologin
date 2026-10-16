@@ -17,6 +17,7 @@ internal sealed class BackgroundContext : ApplicationContext
         settings.NotifyOnManualAction = false;
         _engine = new AutoLoginEngine(settings, new CredentialStore());
         _engine.Start();
+        HandOver.Listen(this);
         AppLog.Info("running in background mode (no tray icon)");
     }
 
