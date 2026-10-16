@@ -41,6 +41,34 @@ public static class SecureTyper
         finally { Array.Clear(inputs); }
     }
 
+    /// <summary>
+    /// Clicks once inside the verified window at a point given as a fraction of its size (used to put the
+    /// caret into the password field when the prompt ignores keystrokes). Refuses if that point is covered
+    /// by any other window, and puts the mouse cursor back where it was afterwards.
+    /// </summary>
+    public static bool ClickInside(IntPtr hwnd, double relX, double relY, Func<IntPtr, bool> stillValid)
+    {
+        var old = Native.SetThreadDpiAwarenessContext(Native.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        try
+        {
+            if (Native.GetForegroundWindow() != hwnd || !stillValid(hwnd)) return false;
+            if (!Native.GetWindowRect(hwnd, out var r)) return false;
+            var pt = new Native.POINT { X = r.Left + (int)((r.Right - r.Left) * relX), Y = r.Top + (int)((r.Bottom - r.Top) * relY) };
+            if (Native.GetAncestor(Native.WindowFromPoint(pt), 2 /*GA_ROOT*/) != hwnd) return false;
+
+            Native.GetCursorPos(out var saved);
+            Native.SetCursorPos(pt.X, pt.Y);
+            var inputs = new[] { Mouse(Native.MOUSEEVENTF_LEFTDOWN), Mouse(Native.MOUSEEVENTF_LEFTUP) };
+            bool ok = Native.SendInput(2, inputs, Marshal.SizeOf<Native.INPUT>()) == 2;
+            Thread.Sleep(150);
+            Native.SetCursorPos(saved.X, saved.Y);
+            return ok;
+        }
+        finally { Native.SetThreadDpiAwarenessContext(old); }
+    }
+
+    private static Native.INPUT Mouse(uint flags) => new() { type = Native.INPUT_MOUSE, mi = new Native.MOUSEINPUT { dwFlags = flags } };
+
     public static bool PressEnter(IntPtr hwnd, Func<IntPtr, bool> stillValid)
     {
         if (Native.GetForegroundWindow() != hwnd || !stillValid(hwnd)) return false;

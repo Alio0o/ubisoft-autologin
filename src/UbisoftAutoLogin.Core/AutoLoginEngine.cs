@@ -19,6 +19,8 @@ public sealed class AutoLoginEngine : IDisposable
     public const int MaxAttemptsPerWindow = 3;
     private static readonly TimeSpan SubmitTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PromptReadTimeout = TimeSpan.FromSeconds(30);
+    // Centre of the password field as a fraction of the prompt window (measured on Ubisoft Connect 174.2).
+    private const double PasswordFieldX = 0.50, PasswordFieldY = 0.564;
 
     private readonly WindowWatcher _watcher = new();
     private readonly CredentialStore _store;
@@ -159,12 +161,18 @@ public sealed class AutoLoginEngine : IDisposable
             // Right after a reboot the prompt can look ready before it accepts keystrokes. Check that the text
             // actually reached the field (placeholder gone) before pressing Enter; retype once if it did not.
             bool landed = false;
-            for (int attempt = 1; attempt <= 2 && !landed; attempt++)
+            for (int attempt = 1; attempt <= 3 && !landed; attempt++)
             {
                 if (attempt > 1)
                 {
-                    await Task.Delay(1500);
+                    // Seen right after a reboot in Xbox mode: the prompt is the foreground window but ignores keys
+                    // until it is properly activated. Re-activate it and click once into the password field.
+                    await Task.Delay(attempt == 2 ? 1000 : 2500);
+                    Native.SetForegroundWindow(hwnd);
                     if (!SecureTyper.EnsureForeground(hwnd, _settings.BringPromptToFront)) break;
+                    bool clicked = SecureTyper.ClickInside(hwnd, PasswordFieldX, PasswordFieldY, Valid);
+                    AppLog.Info($"re-activated prompt and clicked the password field: {clicked}");
+                    await Task.Delay(300);
                 }
                 var pwd = _store.ReadPassword();
                 bool typed;
@@ -194,7 +202,6 @@ public sealed class AutoLoginEngine : IDisposable
                 {
                     AppLog.Info("authentication succeeded: prompt closed");
                     SetStatus(EngineStatus.LoggedIn, "Logged in automatically at " + DateTime.Now.ToString("HH:mm"));
-                    await RestoreFocusAsync();
                     return;
                 }
             }
@@ -208,6 +215,19 @@ public sealed class AutoLoginEngine : IDisposable
             AppLog.Error("auto-login failed: " + ex.GetType().Name + ": " + ex.Message);
             Manual("Auto-login hit an error; please log in manually. See the log for details.");
         }
+        finally
+        {
+            // However the prompt ends (auto-login, typed by hand, or closed), try not to leave the
+            // controller without a focused window.
+            _ = WaitForCloseThenRestoreFocusAsync(hwnd);
+        }
+    }
+
+    private async Task WaitForCloseThenRestoreFocusAsync(IntPtr hwnd)
+    {
+        var until = DateTime.Now.AddMinutes(10);
+        while (Native.IsWindow(hwnd) && Native.IsWindowVisible(hwnd) && DateTime.Now < until) await Task.Delay(500);
+        await RestoreFocusAsync();
     }
 
     /// <summary>
