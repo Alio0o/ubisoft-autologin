@@ -30,7 +30,26 @@ Not yet verified: that Enter submits the prompt (it is the standard default; the
 
 ## Install
 
-1. Download `UbisoftAutoLogin.exe` (self-contained, no .NET install needed) and put it in a folder such as `%LOCALAPPDATA%\Programs\UbisoftAutoLogin`.
+This app handles your Ubisoft password, so you may prefer to **build it yourself from the source you can read** instead of trusting a downloaded `.exe`. Both ways give the same result.
+
+**Option A: build it yourself (recommended if you want to verify the code)**
+
+1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+2. Download or clone this repository, open PowerShell in its folder, and run:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\build.ps1
+   ```
+
+3. The script runs the tests and writes `UbisoftAutoLogin.exe` and `UbisoftAutoLoginDiagnostics.exe` to `.\publish`. It also prints each file's SHA256.
+
+**Option B: download the release**
+
+Download `UbisoftAutoLogin.exe` from [Releases](../../releases). You can compare its SHA256 (`Get-FileHash .\UbisoftAutoLogin.exe`) with a build you made yourself.
+
+**Then:**
+
+1. Put `UbisoftAutoLogin.exe` (self-contained, no .NET install needed) in a folder such as `%LOCALAPPDATA%\Programs\UbisoftAutoLogin`.
 2. Run it. The settings window opens the first time: enter your Ubisoft e-mail and password and press **Save credentials**.
 3. Optional: tick **Start with Windows** and/or **Start in Xbox mode** (both off by default).
 4. Launch a Ubisoft game from Steam. The prompt is filled in automatically.
