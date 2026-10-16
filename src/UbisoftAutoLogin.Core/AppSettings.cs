@@ -34,46 +34,46 @@ public sealed class AppSettings
     }
 }
 
-/// <summary>"Start with Windows" via the per-user Run key. Off unless the user turns it on.</summary>
-/// <remarks>
-/// Uses a per-user Task Scheduler task with a logon trigger instead of the Run key. Run-key apps are started
-/// by the Explorer desktop shell, which Xbox mode / full-screen-experience shells (and tools such as AnyFSE)
-/// don't start until you exit to the desktop. Task Scheduler is a system service, so the task runs at sign-in
-/// whichever shell is used. Creating a task for your own account needs no admin rights.
-/// </remarks>
+/// <summary>
+/// Two independent, opt-in ways to start automatically (both off by default; running both is harmless
+/// because the app is single-instance):
+///  - Start with Windows: the per-user Run key, started by the Explorer desktop.
+///  - Start in Xbox mode: a per-user Task Scheduler sign-in task. Xbox mode / full screen experience shells
+///    (and tools such as AnyFSE) don't start Explorer until you exit to the desktop, so Run-key apps don't run
+///    there; Task Scheduler is a system service and runs whichever shell is used. No admin rights needed.
+/// </summary>
 public static class StartupManager
 {
-    private const string TaskName = "UbisoftAutoLogin";
-    private const string LegacyRunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string Name = "UbisoftAutoLogin";
+    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    public static bool IsEnabled() => SchTasks($"/Query /TN \"{TaskName}\"") == 0;
-
-    /// <summary>Converts a Run-key entry from an older version into the scheduled task.</summary>
-    public static void MigrateLegacy(string exePath)
+    public static bool IsStartWithWindows()
     {
-        using var k = Registry.CurrentUser.OpenSubKey(LegacyRunKey);
-        if (k?.GetValue(TaskName) is not string) return;
-        Set(true, exePath);
-        AppLog.Info("start with Windows moved from the Run key to a sign-in task");
+        using var k = Registry.CurrentUser.OpenSubKey(RunKey);
+        return k?.GetValue(Name) is string;
     }
 
-    public static void Set(bool enabled, string exePath)
+    public static void SetStartWithWindows(bool enabled, string exePath)
     {
-        // Older versions used the Run key; remove it so the app is never started twice.
-        using (var k = Registry.CurrentUser.OpenSubKey(LegacyRunKey, writable: true))
-            k?.DeleteValue(TaskName, throwOnMissingValue: false);
+        using var k = Registry.CurrentUser.CreateSubKey(RunKey);
+        if (enabled) k.SetValue(Name, $"\"{exePath}\" --tray");
+        else k.DeleteValue(Name, throwOnMissingValue: false);
+    }
 
+    public static bool IsXboxMode() => SchTasks($"/Query /TN \"{Name}\"") == 0;
+
+    public static void SetXboxMode(bool enabled, string exePath)
+    {
         if (!enabled)
         {
-            if (IsEnabled()) SchTasks($"/Delete /TN \"{TaskName}\" /F");
+            if (IsXboxMode()) SchTasks($"/Delete /TN \"{Name}\" /F");
             return;
         }
-
         var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
         var xml = $"""
             <?xml version="1.0" encoding="UTF-16"?>
             <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-              <RegistrationInfo><Description>Starts Ubisoft Auto-Login at sign-in (works in Xbox mode too).</Description></RegistrationInfo>
+              <RegistrationInfo><Description>Starts Ubisoft Auto-Login at sign-in, including in Xbox mode / full screen experience.</Description></RegistrationInfo>
               <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{Escape(user)}</UserId></LogonTrigger></Triggers>
               <Principals><Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
               <Settings>
@@ -91,7 +91,7 @@ public static class StartupManager
         try
         {
             File.WriteAllText(file, xml, System.Text.Encoding.Unicode);
-            int code = SchTasks($"/Create /TN \"{TaskName}\" /XML \"{file}\" /F");
+            int code = SchTasks($"/Create /TN \"{Name}\" /XML \"{file}\" /F");
             if (code != 0) throw new InvalidOperationException("schtasks /Create failed with exit code " + code);
         }
         finally { File.Delete(file); }

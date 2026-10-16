@@ -8,7 +8,8 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _email = new() { Width = 280 };
     private readonly TextBox _password = new() { Width = 280, UseSystemPasswordChar = true };
     private readonly CheckBox _enabled = new() { Text = "Auto-login enabled", AutoSize = true };
-    private readonly CheckBox _startup = new() { Text = "Start with Windows (also Xbox mode)", AutoSize = true };
+    private readonly CheckBox _startup = new() { Text = "Start with Windows", AutoSize = true };
+    private readonly CheckBox _xbox = new() { Text = "Start in Xbox mode (full screen experience / AnyFSE)", AutoSize = true };
     private readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(380, 0) };
     private readonly Label _saved = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
 
@@ -31,9 +32,11 @@ internal sealed class SettingsForm : Form
         test.Click += async (_, _) => await _ctx.TestDetection();
 
         _enabled.Checked = ctx.Settings.AutoLoginEnabled;
-        _startup.Checked = StartupManager.IsEnabled();
+        _startup.Checked = StartupManager.IsStartWithWindows();
+        _xbox.Checked = StartupManager.IsXboxMode();
         _enabled.CheckedChanged += (_, _) => _ctx.SetEnabled(_enabled.Checked);
         _startup.CheckedChanged += (_, _) => _ctx.SetStartup(_startup.Checked);
+        _xbox.CheckedChanged += (_, _) => _ctx.SetXboxMode(_xbox.Checked);
 
         var layout = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Fill };
         layout.Controls.Add(new Label { Text = "Ubisoft e-mail:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
@@ -46,15 +49,16 @@ internal sealed class SettingsForm : Form
         layout.Controls.Add(_saved, 1, 3);
         layout.Controls.Add(_enabled, 1, 4);
         layout.Controls.Add(_startup, 1, 5);
-        layout.Controls.Add(test, 1, 6);
-        layout.Controls.Add(new Label { Text = "Status:", AutoSize = true }, 0, 7);
-        layout.Controls.Add(_status, 1, 7);
+        layout.Controls.Add(_xbox, 1, 6);
+        layout.Controls.Add(test, 1, 7);
+        layout.Controls.Add(new Label { Text = "Status:", AutoSize = true }, 0, 8);
+        layout.Controls.Add(_status, 1, 8);
         layout.Controls.Add(new Label
         {
             AutoSize = true, MaximumSize = new Size(380, 0), ForeColor = SystemColors.GrayText,
             Text = "The password is stored in Windows Credential Manager for your Windows account only. " +
                    "It is only ever typed into the verified Ubisoft Connect password prompt."
-        }, 1, 8);
+        }, 1, 9);
         Controls.Add(layout);
 
         _email.Text = ctx.Store.ReadUserName() ?? "";

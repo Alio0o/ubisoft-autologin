@@ -32,16 +32,16 @@ Not yet verified: that Enter submits the prompt (it is the standard default; the
 
 1. Download `UbisoftAutoLogin.exe` (self-contained, no .NET install needed) and put it in a folder such as `%LOCALAPPDATA%\Programs\UbisoftAutoLogin`.
 2. Run it. The settings window opens the first time: enter your Ubisoft e-mail and password and press **Save credentials**.
-3. Optional: tick **Start with Windows** (off by default).
+3. Optional: tick **Start with Windows** and/or **Start in Xbox mode** (both off by default).
 4. Launch a Ubisoft game from Steam. The prompt is filled in automatically.
 
 The tray icon is the Ubisoft Connect icon from your own installation (read at runtime, not shipped with this project) with a status dot: green = ready, blue = logging in, amber = needs you, greyed = off.
 
-Tray menu: Auto-login enabled · Configure Ubisoft credentials · Test login detection · View status · View logs · Start with Windows (also Xbox mode) · Exit.
+Tray menu: Auto-login enabled · Configure Ubisoft credentials · Test login detection · View status · View logs · Start with Windows · Start in Xbox mode · Exit.
 
 ### Controller / Xbox full-screen / Big Picture notes
 
-- **Xbox mode / full screen experience (incl. AnyFSE):** normal startup apps are started by the desktop shell, which these modes skip until you exit to the desktop. So **Start with Windows** registers a per-user Task Scheduler sign-in task instead (no admin needed), which runs whichever shell is in use.
+- **Start with Windows** uses the normal startup list, which the Windows desktop runs. **Start in Xbox mode** is a separate option for Xbox mode / full screen experience (incl. AnyFSE): those skip the desktop and its startup list until you exit to it, so this option registers a per-user Task Scheduler sign-in task instead (no admin needed). Turning both on is fine; only one copy ever runs.
 
 - Nothing needs a keyboard during normal use. The utility has no visible windows unless you open settings.
 - When a game launches, Ubisoft Connect brings the prompt to the front itself. If it doesn't, the utility brings that one verified window to the front before typing (you can turn this off with `BringPromptToFront` in `settings.json`).

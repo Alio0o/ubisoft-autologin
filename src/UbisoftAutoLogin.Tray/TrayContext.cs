@@ -10,17 +10,17 @@ internal sealed class TrayContext : ApplicationContext
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly CredentialStore _store = new();
     private readonly AutoLoginEngine _engine;
-    private readonly ToolStripMenuItem _enabledItem, _startupItem, _statusItem;
+    private readonly ToolStripMenuItem _enabledItem, _startupItem, _xboxItem, _statusItem;
     private SettingsForm? _settingsForm;
 
     public TrayContext(bool openSettingsOnStart)
     {
         _engine = new AutoLoginEngine(_settings, _store);
-        try { StartupManager.MigrateLegacy(Environment.ProcessPath!); } catch (Exception ex) { AppLog.Warn("startup migration failed: " + ex.GetType().Name); }
 
         _statusItem = new ToolStripMenuItem("Status: starting…") { Enabled = false };
         _enabledItem = new ToolStripMenuItem("Auto-login enabled", null, (_, _) => ToggleEnabled()) { Checked = _settings.AutoLoginEnabled };
-        _startupItem = new ToolStripMenuItem("Start with Windows (also Xbox mode)", null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
+        _startupItem = new ToolStripMenuItem("Start with Windows", null, (_, _) => SetStartup(!StartupManager.IsStartWithWindows())) { Checked = StartupManager.IsStartWithWindows() };
+        _xboxItem = new ToolStripMenuItem("Start in Xbox mode", null, (_, _) => SetXboxMode(!StartupManager.IsXboxMode())) { Checked = StartupManager.IsXboxMode() };
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
@@ -33,6 +33,7 @@ internal sealed class TrayContext : ApplicationContext
             new ToolStripMenuItem("View status", null, (_, _) => ShowStatus()),
             new ToolStripMenuItem("View logs", null, (_, _) => OpenLogs()),
             _startupItem,
+            _xboxItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("Exit", null, (_, _) => ExitThread())
         });
@@ -81,13 +82,19 @@ internal sealed class TrayContext : ApplicationContext
         _engine.Resume();
     }
 
-    internal void ToggleStartup() => SetStartup(!StartupManager.IsEnabled());
-
     internal void SetStartup(bool on)
     {
-        StartupManager.Set(on, Environment.ProcessPath!);
-        _startupItem.Checked = StartupManager.IsEnabled();
+        StartupManager.SetStartWithWindows(on, Environment.ProcessPath!);
+        _startupItem.Checked = StartupManager.IsStartWithWindows();
         AppLog.Info("start with Windows " + (on ? "on" : "off"));
+    }
+
+    internal void SetXboxMode(bool on)
+    {
+        try { StartupManager.SetXboxMode(on, Environment.ProcessPath!); }
+        catch (Exception ex) { AppLog.Error("start in Xbox mode failed: " + ex.Message); }
+        _xboxItem.Checked = StartupManager.IsXboxMode();
+        AppLog.Info("start in Xbox mode " + (_xboxItem.Checked ? "on" : "off"));
     }
 
     internal async Task TestDetection()
