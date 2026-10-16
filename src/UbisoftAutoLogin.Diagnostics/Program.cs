@@ -20,6 +20,23 @@ internal static class Program
             return 0;
         }
 
+        int c = Array.IndexOf(args, "--classify");
+        if (c >= 0 && c + 1 < args.Length)
+        {
+            // --classify <outFile>: classification of each visible verified prompt (no text, no image saved)
+            var lines = new List<string>();
+            foreach (var pw in PromptDetector.FindPrompts())
+            {
+                var r = PromptClassifier.ClassifyAsync(pw.Handle).GetAwaiter().GetResult();
+                lines.Add($"{pw} -> {r.Kind} safeToAutoFill={r.SafeToAutoFill} ({r.Reason})");
+                if (args.Contains("--verbose"))
+                    foreach (var t in PromptClassifier.OcrWindowAsync(pw.Handle).GetAwaiter().GetResult() ?? new()) lines.Add("  ocr: " + UiaInspector.Sanitize(t));
+            }
+            if (lines.Count == 0) lines.Add("no verified prompt visible");
+            File.WriteAllLines(args[c + 1], lines);
+            return 0;
+        }
+
         ApplicationConfiguration.Initialize();
 
         int w = Array.IndexOf(args, "--watch");

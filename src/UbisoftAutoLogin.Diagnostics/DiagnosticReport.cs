@@ -33,7 +33,7 @@ public static class DiagnosticReport
         sb.AppendLine($"## Windows ({windows.Count})");
         foreach (var h in windows)
         {
-            if (!Native.IsWindow(h)) continue;
+            if (!WindowInfo.Exists(h)) continue;
             var w = WindowInfo.From(h);
             sb.AppendLine().AppendLine("### " + w);
             var id = LauncherVerifier.Identify(w.Pid);

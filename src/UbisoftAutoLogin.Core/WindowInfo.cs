@@ -25,6 +25,6 @@ public sealed record WindowInfo(IntPtr Handle, uint Pid, string ProcessName, str
     }
 
     public override string ToString() =>
-        $"hwnd=0x{Handle.ToInt64():X} pid={Pid} proc={ProcessName} class='{ClassName}' title='{UiaInspector.Sanitize(Title)}' " +
+        $"hwnd=0x{Handle.ToInt64():X} pid={Pid} proc={ProcessName} class='{ClassName}' title='{Redact.Sanitize(Title)}' " +
         $"visible={Visible} owner=0x{Owner.ToInt64():X} rect={Left},{Top} {Width}x{Height}";
 }

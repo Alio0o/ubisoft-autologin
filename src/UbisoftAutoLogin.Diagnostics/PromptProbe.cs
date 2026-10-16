@@ -2,8 +2,6 @@ using System.Windows.Automation;
 
 namespace UbisoftAutoLogin.Core;
 
-public enum PromptKind { Unknown, NoPrompt, PasswordLogin, TwoFactor, Captcha, AccountRecovery, NetworkError }
-
 public sealed record ProbeResult(WindowInfo Window, ProcessIdentity Identity, PromptKind Kind, int PasswordFields,
     int EditFields, IReadOnlyList<string> ButtonNames, string Note);
 
