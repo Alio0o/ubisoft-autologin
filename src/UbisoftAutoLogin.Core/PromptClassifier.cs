@@ -51,7 +51,7 @@ public static class PromptClassifier
         // second marker of this screen.
         bool loginButton = all.Contains("log in") || all.Contains("login") || all.Contains("recover password");
         if (!(heading && passwordLabel && loginButton))
-            return new(PromptKind.Unknown, false, false, $"not the known password prompt (heading={heading} label={passwordLabel} button={loginButton})");
+            return new(PromptKind.Unknown, false, false, $"not the known password prompt ({lines.Count} text lines; heading={heading} label={passwordLabel} button={loginButton})");
 
         bool email = lines.Any(l => l.Contains('@'));
         // "Password" appears once as the label ("Password:") and once as the placeholder of an empty field.

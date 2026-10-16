@@ -18,6 +18,7 @@ public sealed class AutoLoginEngine : IDisposable
     public static readonly TimeSpan LoopWindow = TimeSpan.FromMinutes(2);
     public const int MaxAttemptsPerWindow = 3;
     private static readonly TimeSpan SubmitTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan PromptReadTimeout = TimeSpan.FromSeconds(30);
 
     private readonly WindowWatcher _watcher = new();
     private readonly CredentialStore _store;
@@ -108,13 +109,18 @@ public sealed class AutoLoginEngine : IDisposable
         {
             SetStatus(EngineStatus.LoginInProgress, "Reading the prompt");
             Classification? c = null;
-            for (int i = 0; i < 4; i++)
+            // Right after boot Ubisoft Connect can show the window well before it draws its content,
+            // so keep reading until the screen is recognisable (or the timeout passes).
+            var readUntil = DateTime.Now + PromptReadTimeout;
+            int reads = 0;
+            do
             {
-                await Task.Delay(i == 0 ? 700 : 600); // let the prompt finish drawing
+                await Task.Delay(reads == 0 ? 700 : 750);
                 if (!PromptDetector.IsVerifiedPrompt(hwnd, out _)) { AppLog.Info("prompt closed before it could be read"); RefreshIdleStatus(); return; }
                 c = await PromptClassifier.ClassifyAsync(hwnd);
-                if (c.Kind != PromptKind.Unknown) break;
-            }
+                reads++;
+            } while (c.Kind == PromptKind.Unknown && DateTime.Now < readUntil);
+            if (reads > 1) AppLog.Info($"prompt read {reads} times before it was recognisable");
             AppLog.Info("prompt classified: " + c!.Reason);
 
             if (!c.SafeToAutoFill)
@@ -128,7 +134,7 @@ public sealed class AutoLoginEngine : IDisposable
                     PromptKind.PasswordLogin when !c.EmailPrefilled => "The e-mail field is empty; auto-login only fills a pre-filled prompt.",
                     PromptKind.PasswordLogin => "The password field is not empty; leaving it to you.",
                     _ => "Unrecognised Ubisoft Connect screen; leaving it to you."
-                });
+                }, notify: c.Kind is PromptKind.TwoFactor or PromptKind.Captcha or PromptKind.AccountRecovery);
                 return;
             }
 
@@ -190,13 +196,17 @@ public sealed class AutoLoginEngine : IDisposable
         });
     }
 
-    private void Manual(string why)
+    /// <summary>
+    /// Records that the user has to act. A notification is shown only when it is certain the user must do
+    /// something specific (2FA, CAPTCHA, no credentials, ...); unclear cases are logged without interrupting.
+    /// </summary>
+    private void Manual(string why, bool notify = true)
     {
         AppLog.Warn("manual action required: " + why);
         Post(() =>
         {
             SetStatus(EngineStatus.ManualActionRequired, why);
-            if (_settings.NotifyOnManualAction) ManualActionRequired?.Invoke(why);
+            if (notify && _settings.NotifyOnManualAction) ManualActionRequired?.Invoke(why);
         });
     }
 
