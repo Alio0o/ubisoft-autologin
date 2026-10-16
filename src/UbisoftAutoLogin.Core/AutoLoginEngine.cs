@@ -19,6 +19,7 @@ public sealed class AutoLoginEngine : IDisposable
     public const int MaxAttemptsPerWindow = 3;
     private static readonly TimeSpan SubmitTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PromptReadTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan FieldSettleTimeout = TimeSpan.FromSeconds(10);
     // Centre of the password field as a fraction of the prompt window (measured on Ubisoft Connect 174.2).
     private const double PasswordFieldX = 0.50, PasswordFieldY = 0.564;
 
@@ -128,7 +129,20 @@ public sealed class AutoLoginEngine : IDisposable
                 c = await PromptClassifier.ClassifyAsync(hwnd);
                 reads++;
             } while (c.Kind == PromptKind.Unknown && DateTime.Now < readUntil);
-            if (reads > 1) AppLog.Info($"prompt read {reads} times before it was recognisable");
+
+            // The heading can be drawn before the fields are: right after a reboot the first readable frame
+            // showed the password screen with an "empty" e-mail and no placeholder. Keep reading briefly
+            // until the fields settle before deciding it is not safe to fill.
+            var settleUntil = DateTime.Now + FieldSettleTimeout;
+            while (c.Kind == PromptKind.PasswordLogin && !c.SafeToAutoFill && DateTime.Now < settleUntil)
+            {
+                await Task.Delay(750);
+                if (!PromptDetector.IsVerifiedPrompt(hwnd, out _)) { AppLog.Info("prompt closed before it could be read"); RefreshIdleStatus(); return; }
+                c = await PromptClassifier.ClassifyAsync(hwnd);
+                reads++;
+            }
+
+            if (reads > 1) AppLog.Info($"prompt read {reads} times before it was ready");
             AppLog.Info("prompt classified: " + c!.Reason);
 
             if (!c.SafeToAutoFill)

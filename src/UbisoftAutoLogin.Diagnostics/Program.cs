@@ -48,6 +48,15 @@ internal static class Program
             return 0;
         }
 
+        int ft = Array.IndexOf(args, "--focus-trace");
+        if (ft >= 0 && ft + 1 < args.Length)
+        {
+            // --focus-trace <outDir> [minutes]: windowless log of focus changes, shown windows and process starts
+            int minutes = ft + 2 < args.Length && int.TryParse(args[ft + 2], out var fm) ? fm : 20;
+            Application.Run(new FocusTrace(args[ft + 1], TimeSpan.FromMinutes(minutes)));
+            return 0;
+        }
+
         Application.Run(new DiagnosticsForm());
         return 0;
     }
