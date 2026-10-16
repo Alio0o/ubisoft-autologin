@@ -19,7 +19,7 @@ internal sealed class TrayContext : ApplicationContext
 
         _statusItem = new ToolStripMenuItem("Status: starting…") { Enabled = false };
         _enabledItem = new ToolStripMenuItem("Auto-login enabled", null, (_, _) => ToggleEnabled()) { Checked = _settings.AutoLoginEnabled };
-        _startupItem = new ToolStripMenuItem("Start with Windows", null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
+        _startupItem = new ToolStripMenuItem("Start with Windows (also Xbox mode)", null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
@@ -36,12 +36,13 @@ internal sealed class TrayContext : ApplicationContext
             new ToolStripMenuItem("Exit", null, (_, _) => ExitThread())
         });
 
-        _icon = new NotifyIcon { Icon = SystemIcons.Shield, Text = "Ubisoft Auto-Login", ContextMenuStrip = menu, Visible = true };
+        _icon = new NotifyIcon { Icon = TrayIcons.For(EngineStatus.Monitoring), Text = "Ubisoft Auto-Login", ContextMenuStrip = menu, Visible = true };
         _icon.DoubleClick += (_, _) => ShowSettings();
 
         _engine.StatusChanged += (s, d) =>
         {
             _statusItem.Text = "Status: " + Describe(s);
+            _icon.Icon = TrayIcons.For(s);
             var tip = "Ubisoft Auto-Login – " + Describe(s);
             _icon.Text = tip.Length > 63 ? tip[..63] : tip;
         };

@@ -8,7 +8,7 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _email = new() { Width = 280 };
     private readonly TextBox _password = new() { Width = 280, UseSystemPasswordChar = true };
     private readonly CheckBox _enabled = new() { Text = "Auto-login enabled", AutoSize = true };
-    private readonly CheckBox _startup = new() { Text = "Start with Windows", AutoSize = true };
+    private readonly CheckBox _startup = new() { Text = "Start with Windows (also Xbox mode)", AutoSize = true };
     private readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(380, 0) };
     private readonly Label _saved = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
 
@@ -16,6 +16,7 @@ internal sealed class SettingsForm : Form
     {
         _ctx = ctx;
         Text = "Ubisoft Auto-Login";
+        Icon = TrayIcons.For(EngineStatus.LauncherDetected);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;

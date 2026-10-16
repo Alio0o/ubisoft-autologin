@@ -35,7 +35,9 @@ Not yet verified: that Enter submits the prompt (it is the standard default; the
 3. Optional: tick **Start with Windows** (off by default).
 4. Launch a Ubisoft game from Steam. The prompt is filled in automatically.
 
-Tray menu: Auto-login enabled · Configure Ubisoft credentials · Test login detection · View status · View logs · Start with Windows · Exit.
+The tray icon is the Ubisoft Connect icon from your own installation (read at runtime, not shipped with this project) with a status dot: green = ready, blue = logging in, amber = needs you, greyed = off.
+
+Tray menu: Auto-login enabled · Configure Ubisoft credentials · Test login detection · View status · View logs · Start with Windows (also Xbox mode) · Exit.
 
 ### Controller / Xbox full-screen / Big Picture notes
 
