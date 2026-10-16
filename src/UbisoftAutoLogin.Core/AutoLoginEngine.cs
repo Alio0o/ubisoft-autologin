@@ -26,6 +26,7 @@ public sealed class AutoLoginEngine : IDisposable
     private readonly SynchronizationContext? _ui;
     private readonly HashSet<IntPtr> _handled = new();
     private readonly Queue<DateTime> _attempts = new();
+    private IntPtr _lastOtherForeground;
     private bool _paused;
 
     public EngineStatus Status { get; private set; } = EngineStatus.Disabled;
@@ -73,7 +74,12 @@ public sealed class AutoLoginEngine : IDisposable
     private void OnWindowEvent(IntPtr hwnd, string kind)
     {
         uint pid = Native.Pid(hwnd);
-        if (!LauncherVerifier.IsLauncherPid(pid)) return; // ignore every other application
+        if (!LauncherVerifier.IsLauncherPid(pid))
+        {
+            // Remember what had focus (e.g. Steam Big Picture) so it can get focus back after the prompt.
+            if (kind == "foreground" && pid != (uint)Environment.ProcessId && Native.IsWindowVisible(hwnd)) _lastOtherForeground = hwnd;
+            return; // ignore every other application
+        }
         if (Status is EngineStatus.Monitoring) RefreshIdleStatus();
 
         if (!string.Equals(Native.ClassName(hwnd), PromptDetector.PromptWindowClass, StringComparison.Ordinal)) return;
@@ -149,15 +155,34 @@ public sealed class AutoLoginEngine : IDisposable
 
             lock (_attempts) _attempts.Enqueue(DateTime.Now);
             AppLog.Info("authentication attempt initiated");
-            var pwd = _store.ReadPassword();
-            bool typed;
-            try { typed = pwd is not null && SecureTyper.TypeInto(hwnd, Valid, pwd); }
-            finally { if (pwd is not null) Array.Clear(pwd); }
 
-            if (!typed || !SecureTyper.PressEnter(hwnd, Valid))
+            // Right after a reboot the prompt can look ready before it accepts keystrokes. Check that the text
+            // actually reached the field (placeholder gone) before pressing Enter; retype once if it did not.
+            bool landed = false;
+            for (int attempt = 1; attempt <= 2 && !landed; attempt++)
             {
-                AppLog.Warn("typing aborted: prompt lost focus or failed verification");
-                Manual("Auto-login stopped because the Ubisoft prompt lost focus. Finish the login manually.");
+                if (attempt > 1)
+                {
+                    await Task.Delay(1500);
+                    if (!SecureTyper.EnsureForeground(hwnd, _settings.BringPromptToFront)) break;
+                }
+                var pwd = _store.ReadPassword();
+                bool typed;
+                try { typed = pwd is not null && SecureTyper.TypeInto(hwnd, Valid, pwd); }
+                finally { if (pwd is not null) Array.Clear(pwd); }
+                if (!typed) break;
+
+                await Task.Delay(400);
+                if (!Valid(hwnd)) { landed = true; break; }
+                var check = await PromptClassifier.ClassifyAsync(hwnd);
+                landed = !(check.Kind == PromptKind.PasswordLogin && check.PasswordFieldEmpty);
+                if (!landed) AppLog.Warn($"typed password did not reach the field (attempt {attempt})");
+            }
+
+            if (!landed || (Valid(hwnd) && !SecureTyper.PressEnter(hwnd, Valid)))
+            {
+                AppLog.Warn("typing aborted: prompt lost focus, failed verification or ignored input");
+                Manual("Auto-login could not type into the Ubisoft prompt. Finish the login manually.");
                 return;
             }
 
@@ -169,10 +194,10 @@ public sealed class AutoLoginEngine : IDisposable
                 {
                     AppLog.Info("authentication succeeded: prompt closed");
                     SetStatus(EngineStatus.LoggedIn, "Logged in automatically at " + DateTime.Now.ToString("HH:mm"));
+                    await RestoreFocusAsync();
                     return;
                 }
             }
-
             var after = await PromptClassifier.ClassifyAsync(hwnd);
             AppLog.Warn("prompt still open after submit: " + after.Reason);
             if (after.Kind == PromptKind.TwoFactor) Manual("Ubisoft now asks for a two-factor code. Please enter it manually.");
@@ -183,6 +208,23 @@ public sealed class AutoLoginEngine : IDisposable
             AppLog.Error("auto-login failed: " + ex.GetType().Name + ": " + ex.Message);
             Manual("Auto-login hit an error; please log in manually. See the log for details.");
         }
+    }
+
+    /// <summary>
+    /// After the prompt closes, Windows may leave focus on nothing (or the hidden launcher), which strands
+    /// controller input. If no new window (e.g. the game) has taken focus, hand it back to the window that
+    /// had it before the prompt, typically Steam Big Picture.
+    /// </summary>
+    private async Task RestoreFocusAsync()
+    {
+        await Task.Delay(1500);
+        var fg = Native.GetForegroundWindow();
+        bool stranded = fg == IntPtr.Zero || LauncherVerifier.IsLauncherPid(Native.Pid(fg))
+                        || Native.ClassName(fg) is "Progman" or "WorkerW" or "Shell_TrayWnd";
+        var target = _lastOtherForeground;
+        if (!stranded || target == IntPtr.Zero || !Native.IsWindow(target) || !Native.IsWindowVisible(target)) return;
+        bool ok = Native.SetForegroundWindow(target);
+        AppLog.Info($"focus returned to previous window ({Native.ClassName(target)}): {ok}");
     }
 
     private void Pause(string why)

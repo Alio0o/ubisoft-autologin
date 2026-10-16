@@ -9,6 +9,7 @@ internal static class Program
         if (!first) return; // already running in the tray
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayContext(openSettingsOnStart: !args.Contains("--tray")));
+        if (args.Contains("--background")) Application.Run(new BackgroundContext());
+        else Application.Run(new TrayContext(openSettingsOnStart: !args.Contains("--tray")));
     }
 }

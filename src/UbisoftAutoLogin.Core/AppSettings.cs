@@ -82,9 +82,10 @@ public static class StartupManager
                 <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
                 <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
                 <Priority>5</Priority>
+                <Hidden>true</Hidden>
                 <StartWhenAvailable>true</StartWhenAvailable>
               </Settings>
-              <Actions Context="Author"><Exec><Command>{Escape(exePath)}</Command><Arguments>--tray</Arguments></Exec></Actions>
+              <Actions Context="Author"><Exec><Command>{Escape(exePath)}</Command><Arguments>--background</Arguments></Exec></Actions>
             </Task>
             """;
         var file = Path.Combine(Path.GetTempPath(), $"UbisoftAutoLogin-task-{Guid.NewGuid():N}.xml");
