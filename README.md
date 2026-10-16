@@ -41,7 +41,7 @@ Tray menu: Auto-login enabled · Configure Ubisoft credentials · Test login det
 
 ### Controller / Xbox full-screen / Big Picture notes
 
-- **Xbox mode (full screen experience):** with "Enter Xbox mode on startup" on, Windows delays startup apps until you exit to the desktop. Turn on **Start with Windows** in this app, then once go to **Settings > Apps > Startup** and set **UbisoftAutoLogin** to **Start at log in** so it also runs inside Xbox mode ([Microsoft docs](https://support.microsoft.com/en-US/servicing/os/windows/docs/2025/10/windows-gaming-full-screen-experience)).
+- **Xbox mode / full screen experience (incl. AnyFSE):** normal startup apps are started by the desktop shell, which these modes skip until you exit to the desktop. So **Start with Windows** registers a per-user Task Scheduler sign-in task instead (no admin needed), which runs whichever shell is in use.
 
 - Nothing needs a keyboard during normal use. The utility has no visible windows unless you open settings.
 - When a game launches, Ubisoft Connect brings the prompt to the front itself. If it doesn't, the utility brings that one verified window to the front before typing (you can turn this off with `BringPromptToFront` in `settings.json`).

@@ -16,6 +16,7 @@ internal sealed class TrayContext : ApplicationContext
     public TrayContext(bool openSettingsOnStart)
     {
         _engine = new AutoLoginEngine(_settings, _store);
+        try { StartupManager.MigrateLegacy(Environment.ProcessPath!); } catch (Exception ex) { AppLog.Warn("startup migration failed: " + ex.GetType().Name); }
 
         _statusItem = new ToolStripMenuItem("Status: starting…") { Enabled = false };
         _enabledItem = new ToolStripMenuItem("Auto-login enabled", null, (_, _) => ToggleEnabled()) { Checked = _settings.AutoLoginEnabled };
