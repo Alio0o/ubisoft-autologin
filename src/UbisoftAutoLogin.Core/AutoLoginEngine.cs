@@ -8,13 +8,15 @@ public enum EngineStatus { Disabled, Monitoring, LauncherDetected, LoginInProgre
 ///  - only windows that pass <see cref="PromptDetector.IsVerifiedPrompt"/> are touched;
 ///  - only the plain password prompt with the e-mail pre-filled and an empty password field is filled;
 ///    2FA, CAPTCHA, recovery, errors and anything unrecognised are left to the user;
-///  - one attempt per prompt window, and no new attempt within <see cref="RetryCooldown"/> of the last one;
+///  - one attempt per prompt window, and a pause if prompts keep coming back (<see cref="MaxAttemptsPerWindow"/> within <see cref="LoopWindow"/>);
 ///  - if the prompt is still there after submitting, auto-login pauses until credentials are re-saved
 ///    or auto-login is toggled, so a wrong password can never be submitted repeatedly.
 /// </summary>
 public sealed class AutoLoginEngine : IDisposable
 {
-    public static readonly TimeSpan RetryCooldown = TimeSpan.FromMinutes(2);
+    /// <summary>More than <see cref="MaxAttemptsPerWindow"/> attempts inside this window means a login loop.</summary>
+    public static readonly TimeSpan LoopWindow = TimeSpan.FromMinutes(2);
+    public const int MaxAttemptsPerWindow = 3;
     private static readonly TimeSpan SubmitTimeout = TimeSpan.FromSeconds(20);
 
     private readonly WindowWatcher _watcher = new();
@@ -22,7 +24,7 @@ public sealed class AutoLoginEngine : IDisposable
     private readonly AppSettings _settings;
     private readonly SynchronizationContext? _ui;
     private readonly HashSet<IntPtr> _handled = new();
-    private DateTime _lastAttempt = DateTime.MinValue;
+    private readonly Queue<DateTime> _attempts = new();
     private bool _paused;
 
     public EngineStatus Status { get; private set; } = EngineStatus.Disabled;
@@ -55,7 +57,7 @@ public sealed class AutoLoginEngine : IDisposable
     public void Resume()
     {
         _paused = false;
-        _lastAttempt = DateTime.MinValue;
+        lock (_attempts) _attempts.Clear();
         RefreshIdleStatus();
     }
 
@@ -85,10 +87,16 @@ public sealed class AutoLoginEngine : IDisposable
 
         if (!_settings.AutoLoginEnabled) { AppLog.Info("auto-login disabled; leaving prompt to the user"); return; }
         if (_paused) { Manual("Auto-login is paused after a failed attempt. Enter the password manually."); return; }
-        if (DateTime.Now - _lastAttempt < RetryCooldown)
+        // A successful login closes the prompt, and relaunching a game legitimately shows it again, so a new
+        // prompt after success is normal. Only a burst of prompts (a real loop) pauses auto-login.
+        lock (_attempts)
         {
-            Pause("Prompt reappeared shortly after an automatic login; the saved password may be wrong.");
-            return;
+            while (_attempts.Count > 0 && DateTime.Now - _attempts.Peek() > LoopWindow) _attempts.Dequeue();
+            if (_attempts.Count >= MaxAttemptsPerWindow)
+            {
+                Pause($"Ubisoft asked for the password {MaxAttemptsPerWindow} times within {LoopWindow.TotalMinutes:0} minutes.");
+                return;
+            }
         }
 
         _ = Task.Run(() => HandlePromptAsync(hwnd));
@@ -133,7 +141,7 @@ public sealed class AutoLoginEngine : IDisposable
                 return;
             }
 
-            _lastAttempt = DateTime.Now;
+            lock (_attempts) _attempts.Enqueue(DateTime.Now);
             AppLog.Info("authentication attempt initiated");
             var pwd = _store.ReadPassword();
             bool typed;

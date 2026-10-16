@@ -14,7 +14,7 @@ It automates the same thing you would do by hand, typing your own password into 
 | Verify | The window must be the prompt window class (`uplay_start`), owned by `upc.exe` in the Ubisoft Connect install folder from the registry, with a valid Authenticode signature from Ubisoft Entertainment, running in your Windows session. The window title is never used. |
 | Read | The prompt is custom-drawn and exposes **no** UI Automation controls, so the built-in Windows OCR engine reads it in memory. The image and text are never saved or logged. Auto-login continues only when it sees the known password screen with the e-mail pre-filled and the password field empty. |
 | Type | The password is read from Windows Credential Manager and typed with `SendInput`. Before **every** keystroke it re-checks that the verified prompt is still the foreground window, and stops instantly if not. No clipboard is used. Then it presses Enter. |
-| Confirm | Success = the prompt closes within 20 s. If it stays open, auto-login **pauses** until you re-save credentials or toggle it, so a wrong password is never submitted twice. A prompt that reappears within 2 minutes of an attempt also pauses it. |
+| Confirm | Success = the prompt closes within 20 s. If it stays open, auto-login **pauses** until you re-save credentials or toggle it, so a wrong password is never submitted twice. A new prompt after a successful login (e.g. relaunching a game) is handled normally; only 3 prompts within 2 minutes counts as a loop and pauses it. |
 
 Two-factor, CAPTCHA, account recovery, network errors and any unrecognised screen are always left to you, with one tray notification.
 
